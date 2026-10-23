@@ -1,0 +1,29 @@
+name: Discord Quote Bot
+
+on:
+  schedule:
+    - cron: '10 0-2,8-23 * * *'
+      timezone: 'Asia/Seoul'
+
+  workflow_dispatch:
+
+jobs:
+  send-quote:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 코드 불러오기
+        uses: actions/checkout@v4
+
+      - name: Python 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: 필요한 라이브러리 설치
+        run: pip install requests
+
+      - name: 대사 전송
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: python bot.py
