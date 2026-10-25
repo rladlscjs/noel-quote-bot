@@ -1,39 +1,52 @@
-import os
-import random
-import requests
+name: Discord Quote Bot
 
+on:
+  schedule:
+    - cron: '10,20,30,40,50 0-2,8-23 * * *'
+      timezone: 'Asia/Seoul'
 
-WEBHOOK_URL = os.environ["DISCORD_WEBHOOK_URL"]
-QUOTE_FILE = "quotes.txt"
+  workflow_dispatch:
 
+permissions:
+  contents: write
 
-def load_quotes():
-    with open(QUOTE_FILE, "r", encoding="utf-8") as f:
-        return [
-            line.strip()
-            for line in f
-            if line.strip()
-        ]
+concurrency:
+  group: discord-quote-bot
+  cancel-in-progress: false
 
+jobs:
+  send-quote:
+    runs-on: ubuntu-latest
 
-def send_quote():
-    quotes = load_quotes()
+    steps:
+      - name: 코드 불러오기
+        uses: actions/checkout@v4
 
-    if not quotes:
-        print("대사가 없습니다.")
-        return
+      - name: Python 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
 
-    quote = random.choice(quotes)
+      - name: 필요한 라이브러리 설치
+        run: pip install requests
 
-    response = requests.post(
-        WEBHOOK_URL,
-        json={"content": quote},
-        timeout=10
-    )
+      - name: 대사 전송
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          FORCE_SEND: ${{ github.event_name == 'workflow_dispatch' }}
+        run: python bot.py
 
-    response.raise_for_status()
+      - name: 전송 기록 저장
+        run: |
+          git add last_sent.txt
 
-    print("전송 완료:", quote)
+          if git diff --cached --quiet; then
+            echo "저장할 변경사항 없음"
+            exit 0
+          fi
 
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-send_quote()
+          git commit -m "Update bot state"
+          git push
