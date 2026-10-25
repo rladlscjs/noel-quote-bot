@@ -12,6 +12,7 @@ WEBHOOK_URL = os.environ["DISCORD_WEBHOOK_URL"]
 QUOTE_FILE = "quotes.txt"
 STATE_FILE = "quote_state.json"
 
+# Actions에서 직접 Run workflow를 눌렀을 때 True
 FORCE_SEND = os.environ.get("FORCE_SEND", "false").lower() == "true"
 
 
@@ -26,10 +27,11 @@ hour = now.hour
 
 # ============================================
 # 새벽 03:00 ~ 07:59 자동 전송 금지
+# 단, 수동 테스트는 가능
 # ============================================
 
 if not FORCE_SEND and 3 <= hour <= 7:
-    print("현재는 전송하지 않는 시간대입니다.")
+    print("현재는 자동 전송하지 않는 시간대입니다.")
     exit()
 
 
@@ -46,12 +48,12 @@ with open(QUOTE_FILE, "r", encoding="utf-8") as f:
 
 
 if not quotes:
-    print("대사가 없습니다.")
+    print("quotes.txt에 대사가 없습니다.")
     exit()
 
 
 # ============================================
-# quotes.txt 상태 확인용 해시 생성
+# quotes.txt 변경 여부 확인용 해시
 # ============================================
 
 quotes_text = "\n".join(quotes)
@@ -76,12 +78,15 @@ if os.path.exists(STATE_FILE):
     try:
         with open(STATE_FILE, "r", encoding="utf-8") as f:
             state = json.load(f)
-    except Exception:
-        print("기존 상태 파일을 읽지 못했습니다. 새로 생성합니다.")
+
+    except Exception as e:
+        print("기존 상태 파일을 읽지 못했습니다.")
+        print("새 상태로 시작합니다.")
+        print(e)
 
 
 # ============================================
-# 이번 시간에 이미 보냈으면 종료
+# 이번 시간에 자동 대사를 이미 보냈으면 종료
 # ============================================
 
 if not FORCE_SEND and state.get("last_sent") == current_hour:
@@ -90,12 +95,17 @@ if not FORCE_SEND and state.get("last_sent") == current_hour:
 
 
 # ============================================
-# 대사가 추가/수정됐거나
-# 모든 대사를 다 사용했다면 다시 섞기
+# 대사 순서 관리
+#
+# 모든 대사를 한 번씩 사용하기 전까지
+# 같은 대사를 다시 사용하지 않음
 # ============================================
 
 remaining = state.get("remaining", [])
 
+
+# quotes.txt가 변경되었거나
+# 모든 대사를 다 썼다면 다시 섞기
 if (
     state.get("quotes_hash") != quotes_hash
     or not remaining
@@ -107,7 +117,7 @@ if (
 
 
 # ============================================
-# 아직 안 나온 대사 하나 선택
+# 아직 사용하지 않은 대사 하나 선택
 # ============================================
 
 quote_index = remaining.pop()
@@ -115,12 +125,14 @@ quote = quotes[quote_index]
 
 
 # ============================================
-# Discord 전송
+# Discord로 전송
 # ============================================
 
 response = requests.post(
     WEBHOOK_URL,
-    json={"content": quote},
+    json={
+        "content": quote
+    },
     timeout=10
 )
 
@@ -131,13 +143,24 @@ print("이번 회차 남은 대사:", len(remaining))
 
 
 # ============================================
-# 현재 상태 저장
+# 상태 저장
 # ============================================
+
+# 수동 Run workflow는
+# 정규 자동 전송 시간을 차지하지 않음
+if FORCE_SEND:
+    new_last_sent = state.get("last_sent", "")
+    print("수동 테스트이므로 자동 전송 기록은 변경하지 않습니다.")
+
+else:
+    new_last_sent = current_hour
+    print("자동 전송 시간 기록:", current_hour)
+
 
 state = {
     "quotes_hash": quotes_hash,
     "remaining": remaining,
-    "last_sent": current_hour
+    "last_sent": new_last_sent
 }
 
 
