@@ -1,52 +1,72 @@
-name: Discord Quote Bot
+import os
+import random
+import requests
 
-on:
-  schedule:
-    - cron: '10,20,30,40,50 0-2,8-23 * * *'
-      timezone: 'Asia/Seoul'
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
-  workflow_dispatch:
 
-permissions:
-  contents: write
+WEBHOOK_URL = os.environ["DISCORD_WEBHOOK_URL"]
+QUOTE_FILE = "quotes.txt"
+STATE_FILE = "last_sent.txt"
 
-concurrency:
-  group: discord-quote-bot
-  cancel-in-progress: false
+FORCE_SEND = os.environ.get("FORCE_SEND", "false").lower() == "true"
 
-jobs:
-  send-quote:
-    runs-on: ubuntu-latest
+now = datetime.now(ZoneInfo("Asia/Seoul"))
+current_hour = now.strftime("%Y-%m-%d-%H")
+hour = now.hour
 
-    steps:
-      - name: 코드 불러오기
-        uses: actions/checkout@v4
 
-      - name: Python 설치
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
+# 새벽 03:00 ~ 07:59 자동 전송 금지
+if not FORCE_SEND and 3 <= hour <= 7:
+    print("현재는 전송하지 않는 시간대입니다.")
+    exit()
 
-      - name: 필요한 라이브러리 설치
-        run: pip install requests
 
-      - name: 대사 전송
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          FORCE_SEND: ${{ github.event_name == 'workflow_dispatch' }}
-        run: python bot.py
+# 마지막 전송 시간 확인
+last_sent = ""
 
-      - name: 전송 기록 저장
-        run: |
-          git add last_sent.txt
+if os.path.exists(STATE_FILE):
+    with open(STATE_FILE, "r", encoding="utf-8") as f:
+        last_sent = f.read().strip()
 
-          if git diff --cached --quiet; then
-            echo "저장할 변경사항 없음"
-            exit 0
-          fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+# 이미 이번 시간에 보냈다면 종료
+if not FORCE_SEND and last_sent == current_hour:
+    print("이번 시간에는 이미 대사를 보냈습니다.")
+    exit()
 
-          git commit -m "Update bot state"
-          git push
+
+# 대사 읽기
+with open(QUOTE_FILE, "r", encoding="utf-8") as f:
+    quotes = [
+        line.strip()
+        for line in f
+        if line.strip()
+    ]
+
+
+if not quotes:
+    print("대사가 없습니다.")
+    exit()
+
+
+# 랜덤 대사 선택
+quote = random.choice(quotes)
+
+response = requests.post(
+    WEBHOOK_URL,
+    json={"content": quote},
+    timeout=10
+)
+
+response.raise_for_status()
+
+print("전송 완료:", quote)
+
+
+# 이번 시간 전송 완료 기록
+with open(STATE_FILE, "w", encoding="utf-8") as f:
+    f.write(current_hour)
+
+print("전송 시간 기록:", current_hour)
