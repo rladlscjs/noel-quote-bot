@@ -36,9 +36,9 @@ jobs:
           FORCE_SEND: ${{ github.event_name == 'workflow_dispatch' }}
         run: python bot.py
 
-      - name: 전송 기록 저장
+      - name: 대사 사용 기록 저장
         run: |
-          git add last_sent.txt
+          git add quote_state.json
 
           if git diff --cached --quiet; then
             echo "저장할 변경사항 없음"
@@ -48,5 +48,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git commit -m "Update bot state"
+          git commit -m "Update quote state"
           git push
