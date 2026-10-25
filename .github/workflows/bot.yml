@@ -2,7 +2,7 @@ name: Discord Quote Bot
 
 on:
   schedule:
-    - cron: '10,20,30,40,50 0-2,8-23 * * *'
+    - cron: '5,15,25,35,45,55 0-2,8-23 * * *'
       timezone: 'Asia/Seoul'
 
   workflow_dispatch:
