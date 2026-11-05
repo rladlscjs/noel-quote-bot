@@ -1,10 +1,17 @@
+
 name: Discord Quote Bot
 
 on:
-  schedule:
-    - cron: '5,15,25,35,45,55 * * * *'
-
   workflow_dispatch:
+    inputs:
+      run_type:
+        description: "실행 방식"
+        required: true
+        default: "manual"
+        type: choice
+        options:
+          - manual
+          - automatic
 
 permissions:
   contents: write
@@ -32,7 +39,7 @@ jobs:
       - name: 대사 전송
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          FORCE_SEND: ${{ github.event_name == 'workflow_dispatch' }}
+          FORCE_SEND: ${{ inputs.run_type == 'manual' }}
         run: python bot.py
 
       - name: 대사 사용 기록 저장
