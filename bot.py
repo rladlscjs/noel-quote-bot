@@ -30,7 +30,7 @@ hour = now.hour
 # 단, 수동 테스트는 가능
 # ============================================
 
-if not FORCE_SEND and 3 <= hour <= 7:
+if not FORCE_SEND and 4 <= hour <= 7:
     print("현재는 자동 전송하지 않는 시간대입니다.")
     exit()
 
